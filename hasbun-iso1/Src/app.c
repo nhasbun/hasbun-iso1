@@ -48,7 +48,7 @@ static void task1() {
     {
         i++;
         if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 100) { HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); init = HAL_GetTick();}
+		if (HAL_GetTick() - init > 1000) { HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); init = HAL_GetTick();}
     }
 }
 
@@ -61,7 +61,7 @@ static void task2() {
     {
         j++;
         if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 133) { HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin); init = HAL_GetTick();}
+		if (HAL_GetTick() - init > 1500) { HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin); init = HAL_GetTick();}
     }
 }
 
@@ -74,7 +74,7 @@ static void task3() {
     {
         k++;
         if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 133) { HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin); init = HAL_GetTick();}
+		if (HAL_GetTick() - init > 1500) { HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin); init = HAL_GetTick();}
     }
 }
 

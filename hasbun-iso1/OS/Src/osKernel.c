@@ -3,7 +3,6 @@
 #include "osKernel.h"
 #include "system_stm32f4xx.h"
 #include "stm32f429xx.h"
-#include "stm32f4xx_hal.h"
 #include "core_cm4.h"
 #include "cmsis_gcc.h"
 
@@ -85,7 +84,7 @@ void osStart(void)
 
     /* Activate and configure the time of Systick exception */
     SystemCoreClockUpdate();
-    SysTick_Config(SystemCoreClock / (1000U / SYSTICK_PERIOD_MS));
+    SysTick_Config(SystemCoreClock / (1000U * SYSTICK_PERIOD_MS));
 
     osKernel.running = true;
 
@@ -172,9 +171,6 @@ static void scheduler(void)
 
 void SysTick_Handler(void)
 {
-	// Keep the tick count going
-	HAL_IncTick();
-
 	scheduler();
 
     /*
