@@ -18,8 +18,11 @@ typedef struct
     uint32_t        currentPriority;           // Current running priority.
     uint32_t        currentTaskIndex;          // currentTaskIndex by priority.
     uint32_t        countTask;                 // Total task count (used for id).
-    uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY];       // Number of task created by priority.
+    uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY + 1];
+                                               // Number of task created by priority (including idle).
     bool            running;                   // Status task, if it is running true in otherwise false.
+
+    osTaskObject    idleTask;                  // specific idle task object.
 } osKernelObject;
 
 /* ================== Private variables declaration ================= */
@@ -32,7 +35,9 @@ static osKernelObject osKernel = {
 		.currentTaskIndex = 0xffffffff,
 		.countTask = 0,
 		.countTaskByPriority = {0},
-		.running = false
+		.running = false,
+
+		.idleTask = {{0}}
 };
 
 /* ================== Private functions declaration ================= */
@@ -41,6 +46,7 @@ static uint32_t getNextContext(uint32_t currentTaskStackPointer);
 static void getNextTask(osPriorityType * priority, uint32_t * taskIndex);
 static void disableKernelInterrupts(bool setDisable);
 static void scheduler(void);
+static void idleTaskCreate();
 
 /* ================= Public functions implementation ================ */
 
@@ -89,6 +95,8 @@ void osStart(void)
 
     osKernel.running = false;
 
+    idleTaskCreate();
+
     /*
      * All interrupts has priority 0 (maximum) at start execution. For that don't happen fault
      * condition, we have to less priority of NVIC. This math calculation showing take lowest
@@ -107,6 +115,10 @@ void osStart(void)
 
 __WEAK void osReturnTaskHook(void) {
 
+}
+
+__WEAK void osIdleTask(void) {
+	__WFI();
 }
 
 
@@ -209,6 +221,39 @@ static void scheduler(void)
 	osKernel.currentTask = osKernel.priorityTaskMatrix[priority][taskIndex];
 	osKernel.currentTask -> state = OS_TASK_RUNNING;
 }
+
+
+static void idleTaskCreate() {
+	osTaskObject * handler = & osKernel.idleTask;
+
+
+    /* Setting:
+     * - xPSR bit 24 to 1 (thumb bit)
+     * - PC counter value set to given callback/task method
+     * - R0 reg is a pointer indicating a given argument structure for the task
+     * - LR return values is fixed for combo: thread mode + MSP register usage
+     */
+    handler -> memory[MAX_STACK_SIZE/4 - XPSR_REG_POSITION]     = XPSR_VALUE;
+    handler -> memory[MAX_STACK_SIZE/4 - PC_REG_POSTION]        = (uint32_t) osIdleTask;
+    // handler -> memory[MAX_STACK_SIZE/4 - R0_REG_POSTION]        = (uint32_t) arg;
+    handler -> memory[MAX_STACK_SIZE/4 - LR_PREV_VALUE_POSTION] = EXEC_RETURN_VALUE;
+    // If occur some problem and task executed return so after that execute this function.
+    handler->memory[MAX_STACK_SIZE/4 - LR_REG_POSTION]          = (uint32_t) osReturnTaskHook;
+
+
+    // Pointer function of task.
+    handler -> entryPoint     = osIdleTask;
+    handler -> id             = osKernel.countTask;
+    handler -> state          = OS_TASK_READY;
+    handler -> priority       = OS_IDLE_PRIORITY;
+    handler -> stackPointer   = (uint32_t)(handler->memory + MAX_STACK_SIZE/4 - SIZE_STACK_FRAME);
+
+    // Fill controls OS structure (adjusted for priority)
+    osKernel.priorityTaskMatrix[OS_IDLE_PRIORITY][osKernel.countTaskByPriority[OS_IDLE_PRIORITY]] = handler;
+    osKernel.countTaskByPriority[OS_IDLE_PRIORITY] += 1;
+    osKernel.countTask++;
+}
+
 
 /* ========== Processor Interruption and Exception Handlers ========= */
 
