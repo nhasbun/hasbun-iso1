@@ -16,7 +16,8 @@ typedef struct
     osTaskObject*   currentTask;               // Current task intended to run.
     uint32_t        oldPriority;               // Old exiting priority.
     uint32_t        currentPriority;           // Current running priority.
-    uint32_t        currentTaskIndex;          // currentTaskIndex by priority.
+    uint32_t        currentTaskIndex[MAX_NUMBER_PRIORITY + 1];
+                                               // currentTaskIndex by priority.
     uint32_t        countTask;                 // Total task count (used for id).
     uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY + 1];
                                                // Number of task created by priority (including idle).
@@ -36,7 +37,7 @@ static osKernelObject osKernel = {
 		.currentTask = NULL,
 		.oldPriority = 0,
 		.currentPriority = OS_VERYHIGH_PRIORITY,
-		.currentTaskIndex = 0xffffffff,
+		.currentTaskIndex = {0xffffffff},
 		.countTask = 0,
 		.countTaskByPriority = {0},
 		.osTime = 0,
@@ -175,8 +176,8 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 	osPriorityType priorityTarget = OS_IDLE_PRIORITY;
 
 	// Check entire matrix for task achieving two objectives:
-	// 1- update any task in waiting state with current time (under osDelay)
-	// 2- find highest priority after updating tasks in waiting state
+	// 1- update any task in waiting state and move to ready state accordingly
+	// 2- find highest priority number with at least 1 task in ready state
 	for (int i = 0; i < MAX_NUMBER_PRIORITY; i++) {
 		for (int j = 0; j < osKernel.countTaskByPriority[i]; j++) {
 
@@ -197,33 +198,37 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 
 	/* Update osKernel priority attendance and current task index.
 	 *
-	 * Task index is associated with priority to achieve round-robin
-	 * scheduling for equal priority tasks. When getting a priority
-	 * change task index is going back to 0.
-	 *
-	 * This could lead eventually to a starving situation since
-	 * always first indexes are executed but last ones are depending
-	 * on not getting a priority change while being ready for
-	 * executions.
-	 *
-	 * TODO improve round-robin for equal priority task by working with
-	 * 		an array of task indexes associated with priorities.
+	 * We work with a circular task index for every existing priority.
+	 * This index is kept in memory and brought back so work is fairly distributed
+	 * even in a recent priority change situation.
 	 */
 
 	if (priorityTarget != osKernel.currentPriority) {
 		osKernel.oldPriority = osKernel.currentPriority;
 		osKernel.currentPriority = priorityTarget;
-		osKernel.currentTaskIndex = 0xffffffff;
 	}
 
 	// calculate matrix coordinates
-	osKernel.currentTaskIndex += 1;
+	uint32_t _priority = 0;
+	uint32_t _taskIndex = 0;
 
-	if (osKernel.currentTaskIndex > osKernel.countTaskByPriority[osKernel.currentPriority] - 1)
-		osKernel.currentTaskIndex = 0;
+	for(;;) {
+		osKernel.currentTaskIndex[osKernel.currentPriority] += 1;
 
-	*priority  = osKernel.currentPriority;
-	*taskIndex = osKernel.currentTaskIndex;
+		if (osKernel.currentTaskIndex[osKernel.currentPriority] > osKernel.countTaskByPriority[osKernel.currentPriority] - 1)
+			osKernel.currentTaskIndex[osKernel.currentPriority] = 0;
+
+		_priority  = osKernel.currentPriority;
+		_taskIndex = osKernel.currentTaskIndex[osKernel.currentPriority];
+
+		/* if pointed task is not ready we skip it and move to the next */
+		if (osKernel.priorityTaskMatrix[_priority][_taskIndex] -> state == OS_TASK_READY)
+			break;
+	}
+
+	// return values
+	*priority = _priority;
+	*taskIndex = _taskIndex;
 }
 
 

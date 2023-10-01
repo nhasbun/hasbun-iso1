@@ -68,6 +68,7 @@ static void task3() {
     while(1)
     {
         k++;
+        osDelay(10);
     }
 }
 
