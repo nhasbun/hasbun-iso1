@@ -20,7 +20,11 @@ typedef struct
     uint32_t        countTask;                 // Total task count (used for id).
     uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY + 1];
                                                // Number of task created by priority (including idle).
+    uint32_t        osTime;                    // System time in milliseconds since osStart call.
+    uint32_t        delayStopTime[MAX_NUMBER_TASK];
+								               // Every task got an associated delay (indexed by his id).
     bool            running;                   // Status task, if it is running true in otherwise false.
+
 
     osTaskObject    idleTask;                  // specific idle task object.
 } osKernelObject;
@@ -35,6 +39,8 @@ static osKernelObject osKernel = {
 		.currentTaskIndex = 0xffffffff,
 		.countTask = 0,
 		.countTaskByPriority = {0},
+		.osTime = 0,
+		.delayStopTime = {0},
 		.running = false,
 
 		.idleTask = {{0}}
@@ -113,6 +119,25 @@ void osStart(void)
     disableKernelInterrupts(false);
 }
 
+
+void osDelay(const uint32_t tick) {
+	osTaskObject * thisTask = osKernel.currentTask;
+
+	thisTask -> state = OS_TASK_WAITING;
+	osKernel.delayStopTime[thisTask -> id] = osKernel.osTime + tick;
+
+	/* while task is in state=waiting we keep calling wfi
+	 * arm instruction, waiting for a change in task state.
+	 *
+	 * Change is triggered by scheduler when trying to find next
+	 * task to put in the work pipeline.
+	 * */
+	while (thisTask -> state == OS_TASK_WAITING) {
+		__WFI();
+	}
+}
+
+
 __WEAK void osReturnTaskHook(void) {
 
 }
@@ -149,20 +174,42 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 	// By default running with lowest kernel idle priority
 	osPriorityType priorityTarget = OS_IDLE_PRIORITY;
 
-	// Check entire matrix for any task with higher priority in READY state starting from top.
+	// Check entire matrix for task achieving two objectives:
+	// 1- update any task in waiting state with current time (under osDelay)
+	// 2- find highest priority after updating tasks in waiting state
 	for (int i = 0; i < MAX_NUMBER_PRIORITY; i++) {
 		for (int j = 0; j < osKernel.countTaskByPriority[i]; j++) {
-			if (osKernel.priorityTaskMatrix[i][j] -> state == OS_TASK_READY) {
-				priorityTarget = i;
 
-				// Forcing exit of nested loop
-				i = MAX_NUMBER_PRIORITY;
-				break;
+			osTaskObject * task = osKernel.priorityTaskMatrix[i][j];
+
+			if (task -> state == OS_TASK_WAITING) {
+				if (osKernel.delayStopTime[task->id] == osKernel.osTime)
+					task -> state = OS_TASK_READY;
+			}
+
+			if (task -> state == OS_TASK_READY) {
+
+				if (i < priorityTarget)
+					priorityTarget = i;
 			}
 		}
 	}
 
-	// Update osKernel priority attendance and current task index
+	/* Update osKernel priority attendance and current task index.
+	 *
+	 * Task index is associated with priority to achieve round-robin
+	 * scheduling for equal priority tasks. When getting a priority
+	 * change task index is going back to 0.
+	 *
+	 * This could lead eventually to a starving situation since
+	 * always first indexes are executed but last ones are depending
+	 * on not getting a priority change while being ready for
+	 * executions.
+	 *
+	 * TODO improve round-robin for equal priority task by working with
+	 * 		an array of task indexes associated with priorities.
+	 */
+
 	if (priorityTarget != osKernel.currentPriority) {
 		osKernel.oldPriority = osKernel.currentPriority;
 		osKernel.currentPriority = priorityTarget;
@@ -207,8 +254,8 @@ static void scheduler(void)
 	// Catch no registered tasks
 	if (osKernel.countTask == 0) return;
 
-	// Changing current task from running to ready state
-	if (osKernel.currentTask != NULL)
+	// If current task is in state running we change to ready
+	if (osKernel.currentTask -> state == OS_TASK_RUNNING)
 		osKernel.currentTask -> state = OS_TASK_READY;
 
 	// calculate next task coordinates
@@ -259,6 +306,7 @@ static void idleTaskCreate() {
 
 void SysTick_Handler(void)
 {
+	osKernel.osTime++;
 	scheduler();
 
     /*

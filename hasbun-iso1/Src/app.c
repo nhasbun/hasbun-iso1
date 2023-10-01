@@ -25,9 +25,9 @@ static void task3();
 
 
 void app_main() {
-    osTaskCreate(&osTask1, OS_NORMAL_PRIORITY, task1);
+    osTaskCreate(&osTask1, OS_HIGH_PRIORITY,   task1);
     osTaskCreate(&osTask2, OS_NORMAL_PRIORITY, task2);
-    osTaskCreate(&osTask3, OS_LOW_PRIORITY, task3);
+    osTaskCreate(&osTask3, OS_LOW_PRIORITY,    task3);
 
     osStart();
 
@@ -41,40 +41,33 @@ void app_main() {
 
 
 static void task1() {
-	uint32_t init = -1;
     uint32_t i = 0;
 
     while(1)
     {
         i++;
-        if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 500) { HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); init = HAL_GetTick();}
+        osDelay(500);
     }
 }
 
 
 static void task2() {
-	uint32_t init = -1;
     uint32_t j = 0;
 
     while(1)
     {
         j++;
-        if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 1000) { HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin); init = HAL_GetTick();}
+        osDelay(1000);
     }
 }
 
 
 static void task3() {
-	uint32_t init = -1;
     uint32_t k = 0;
 
     while(1)
     {
         k++;
-        if (init == -1) {init = HAL_GetTick();}
-		if (HAL_GetTick() - init > 1500) { HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin); init = HAL_GetTick();}
     }
 }
 

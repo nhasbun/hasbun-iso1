@@ -7,7 +7,7 @@
 #define MAX_NUMBER_TASK         8U          // Defines maximum task we could create.
 #define MAX_NUMBER_PRIORITY     4U          // Defines the maximum amount of priority.
 #define MAX_STACK_SIZE          256U        // Defines maximum stack size for a task.
-#define SYSTICK_PERIOD_MS       10U        // Systick period time in mili-second.
+#define SYSTICK_PERIOD_MS       1U          // Systick period time in mili-second.
 #define SIZE_STACK_FRAME        17U         // Size stack frame
 
 
