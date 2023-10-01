@@ -11,28 +11,34 @@
 
 typedef struct
 {
-    osTaskObject*   listTask[MAX_NUMBER_TASK]; // Task list.
+    osTaskObject*   priorityTaskMatrix[MAX_NUMBER_PRIORITY + 1][MAX_NUMBER_TASK]; // Task matrix by priority (including idle task)
     osTaskObject*   oldTask;                   // Old exiting task.
     osTaskObject*   currentTask;               // Current task intended to run.
-    uint32_t		currentTaskIndex;		   // Current task index
-    uint8_t         countTask;                 // Number of task created.
+    uint32_t        oldPriority;               // Old exiting priority.
+    uint32_t        currentPriority;           // Current running priority.
+    uint32_t        currentTaskIndex;          // currentTaskIndex by priority.
+    uint32_t        countTask;                 // Total task count (used for id).
+    uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY];       // Number of task created by priority.
     bool            running;                   // Status task, if it is running true in otherwise false.
-}osKernelObject;
+} osKernelObject;
 
 /* ================== Private variables declaration ================= */
 static osKernelObject osKernel = {
-		.listTask = {0},
+		.priorityTaskMatrix = {{0}},
 		.oldTask = NULL,
 		.currentTask = NULL,
-		.currentTaskIndex = 0xffff,
+		.oldPriority = 0,
+		.currentPriority = OS_VERYHIGH_PRIORITY,
+		.currentTaskIndex = 0xffffffff,
 		.countTask = 0,
+		.countTaskByPriority = {0},
 		.running = false
 };
 
 /* ================== Private functions declaration ================= */
 
 static uint32_t getNextContext(uint32_t currentTaskStackPointer);
-static uint32_t getNextTaskIndex();
+static void getNextTask(osPriorityType * priority, uint32_t * taskIndex);
 static void disableKernelInterrupts(bool setDisable);
 static void scheduler(void);
 
@@ -43,6 +49,9 @@ bool osTaskCreate(osTaskObject* handler, osPriorityType priority, void* callback
     {
         return false;
     }
+
+    if (priority > OS_IDLE_PRIORITY - 1)
+    	priority = OS_IDLE_PRIORITY - 1;
 
     /* Setting:
      * - xPSR bit 24 to 1 (thumb bit)
@@ -65,8 +74,9 @@ bool osTaskCreate(osTaskObject* handler, osPriorityType priority, void* callback
     handler -> priority       = priority;
     handler -> stackPointer   = (uint32_t)(handler->memory + MAX_STACK_SIZE/4 - SIZE_STACK_FRAME);
 
-    // Fill controls OS structure
-    osKernel.listTask[osKernel.countTask] = handler;
+    // Fill controls OS structure (adjusted for priority)
+    osKernel.priorityTaskMatrix[priority][osKernel.countTaskByPriority[priority]] = handler;
+    osKernel.countTaskByPriority[priority] += 1;
     osKernel.countTask++;
 
     return true;
@@ -118,19 +128,43 @@ static uint32_t getNextContext(uint32_t currentTaskStackPointer)
 }
 
 /**
- * @brief Simplify circular advance in an array of kernel tasks.
+ * @brief Calculate next task intended to be running.
  *
- * We assume at least one task in the kernel.
+ * Get next task matrix coordinates (priority + priority index in priorityTaskMatrix in osKernel).
  */
-static uint32_t getNextTaskIndex() {
+static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 
-	uint32_t desiredTaskIndex = osKernel.currentTaskIndex + 1;
+	// By default running with lowest kernel idle priority
+	osPriorityType priorityTarget = OS_IDLE_PRIORITY;
 
-	if (desiredTaskIndex >= osKernel.countTask) {
-		desiredTaskIndex = 0;
+	// Check entire matrix for any task with higher priority in READY state starting from top.
+	for (int i = 0; i < MAX_NUMBER_PRIORITY; i++) {
+		for (int j = 0; j < osKernel.countTaskByPriority[i]; j++) {
+			if (osKernel.priorityTaskMatrix[i][j] -> state == OS_TASK_READY) {
+				priorityTarget = i;
+
+				// Forcing exit of nested loop
+				i = MAX_NUMBER_PRIORITY;
+				break;
+			}
+		}
 	}
 
-	return desiredTaskIndex;
+	// Update osKernel priority attendance and current task index
+	if (priorityTarget != osKernel.currentPriority) {
+		osKernel.oldPriority = osKernel.currentPriority;
+		osKernel.currentPriority = priorityTarget;
+		osKernel.currentTaskIndex = 0xffffffff;
+	}
+
+	// calculate matrix coordinates
+	osKernel.currentTaskIndex += 1;
+
+	if (osKernel.currentTaskIndex > osKernel.countTaskByPriority[osKernel.currentPriority] - 1)
+		osKernel.currentTaskIndex = 0;
+
+	*priority  = osKernel.currentPriority;
+	*taskIndex = osKernel.currentTaskIndex;
 }
 
 
@@ -161,17 +195,18 @@ static void scheduler(void)
 	// Catch no registered tasks
 	if (osKernel.countTask == 0) return;
 
-	// Calculate next task index from kernel task list
-	uint32_t targetTaskIndex = getNextTaskIndex();
-
-	// Current task is null the first run and we ignore it
+	// Changing current task from running to ready state
 	if (osKernel.currentTask != NULL)
 		osKernel.currentTask -> state = OS_TASK_READY;
 
+	// calculate next task coordinates
+	osPriorityType priority = 0;
+	uint32_t taskIndex = 0;
+	getNextTask(&priority, &taskIndex);
+
 	// We change target task
 	osKernel.oldTask = osKernel.currentTask;
-	osKernel.currentTaskIndex = targetTaskIndex;
-	osKernel.currentTask = osKernel.listTask[targetTaskIndex];
+	osKernel.currentTask = osKernel.priorityTaskMatrix[priority][taskIndex];
 	osKernel.currentTask -> state = OS_TASK_RUNNING;
 }
 

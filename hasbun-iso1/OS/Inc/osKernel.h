@@ -67,7 +67,8 @@ typedef struct
  * @brief Create task.
  *
  * @param[in,out]   handler     Data structure of task.
- * @param[in]       priority    Task priority level.
+ * @param[in]       priority    Task priority level. Lowest priority is capped by OS_IDLE_PRIORITY - 1,
+ *                              a lower number is forced to that number.
  * @param[in]       callback    Function executed on task
  *
  * @return Return true if task was success or false in otherwise.

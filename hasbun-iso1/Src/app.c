@@ -25,8 +25,8 @@ static void task3();
 
 
 void app_main() {
-    osTaskCreate(&osTask1, OS_HIGH_PRIORITY, task1);
-    osTaskCreate(&osTask2, OS_LOW_PRIORITY, task2);
+    osTaskCreate(&osTask1, OS_NORMAL_PRIORITY, task1);
+    osTaskCreate(&osTask2, OS_NORMAL_PRIORITY, task2);
     osTaskCreate(&osTask3, OS_LOW_PRIORITY, task3);
 
     osStart();
