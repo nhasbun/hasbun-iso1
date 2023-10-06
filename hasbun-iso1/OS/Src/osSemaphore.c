@@ -26,7 +26,7 @@ bool osSemaphoreTake(osSemaphoreObject* semaphore) {
 
 	semaphore -> isTaked = true;
 	semaphore -> waitingTask = osGetRunningTask();
-	semaphore -> waitingTask -> state = OS_TASK_WAITING;
+	semaphore -> waitingTask -> state = OS_TASK_BLOCK;
 
 	/* wait for systick -> scheduler */
 	while (semaphore -> isTaked) {
@@ -45,6 +45,6 @@ void osSemaphoreGive(osSemaphoreObject* semaphore) {
 	semaphore -> isTaked = false;
 
 	/* we ignore any other state than being waiting/blocked */
-	if (semaphore -> waitingTask -> state == OS_TASK_WAITING)
+	if (semaphore -> waitingTask -> state == OS_TASK_BLOCK)
 	    semaphore -> waitingTask -> state = OS_TASK_READY;
 }

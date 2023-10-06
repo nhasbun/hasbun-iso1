@@ -133,7 +133,7 @@ void osDelay(const uint32_t tick) {
 
 	osTaskObject * thisTask = osKernel.currentTask;
 
-	thisTask -> state = OS_TASK_WAITING;
+	thisTask -> state = OS_TASK_BLOCK;
 	thisTask -> delayStopTime = osKernel.osTime + tick;
 
 	osYield();
@@ -233,7 +233,7 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 			osTaskObject * task = osKernel.priorityTaskMatrix[i][j];
 
 			// Checking for delays
-			if (task -> state == OS_TASK_WAITING &&
+			if (task -> state == OS_TASK_BLOCK &&
                 task -> delayStopTime != 0) {
 
 			    if (task -> delayStopTime == osKernel.osTime) {
@@ -243,7 +243,7 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 			}
 
 			// Checking for queue empty
-			if (task -> state == OS_TASK_WAITING &&
+			if (task -> state == OS_TASK_BLOCK &&
 			    task -> queueEmpty != NULL) {
 
 			    if (!isQueueEmpty(task -> queueEmpty)) {
@@ -253,7 +253,7 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 			}
 
 			// Checking for queue full
-			if (task -> state == OS_TASK_WAITING &&
+			if (task -> state == OS_TASK_BLOCK &&
                 task -> queueFull != NULL) {
 
                 if (!isQueueFull(task -> queueFull)) {

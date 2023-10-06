@@ -37,7 +37,7 @@ void osQueueSend(osQueueObject* queue, const void* data, const uint32_t timeout)
 
 	    osTaskObject * task = osGetRunningTask();
 
-		task->state = OS_TASK_WAITING;
+		task->state = OS_TASK_BLOCK;
 		task->queueFull = queue;
 
 		osYield();
@@ -56,7 +56,7 @@ void osQueueReceive(osQueueObject* queue, void* buffer, const uint32_t timeout) 
 	/* if queue is empty, task becomes blocked/waiting */
 	while (isQueueEmpty(queue)) {
 
-		osGetRunningTask()->state = OS_TASK_WAITING;
+		osGetRunningTask()->state = OS_TASK_BLOCK;
 		osGetRunningTask()->queueEmpty = queue;
 
 		osYield();

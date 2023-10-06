@@ -39,7 +39,7 @@ typedef enum
 {
     OS_TASK_READY,      // Ready state
     OS_TASK_RUNNING,    // Running state
-    OS_TASK_WAITING,    // Waiting state
+    OS_TASK_BLOCK,      // Blocked state
     OS_TASK_SUSPEND     // Suspended state
 }osTaskStatusType;
 
