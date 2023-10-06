@@ -1,6 +1,7 @@
 #include <stddef.h>
 
 #include "osKernel.h"
+#include "osQueue.h"
 #include "system_stm32f4xx.h"
 #include "stm32f429xx.h"
 #include "core_cm4.h"
@@ -22,15 +23,16 @@ typedef struct
     uint8_t         countTaskByPriority[MAX_NUMBER_PRIORITY + 1];
                                                // Number of task created by priority (including idle).
     uint32_t        osTime;                    // System time in milliseconds since osStart call.
-    uint32_t        delayStopTime[MAX_NUMBER_TASK];
-								               // Every task got an associated delay (indexed by his id).
+
     bool            running;                   // Status task, if it is running true in otherwise false.
 
 
-    osTaskObject    idleTask;                  // specific idle task object.
+    osTaskObject*   idleTask;                  // specific idle task object.
 } osKernelObject;
 
 /* ================== Private variables declaration ================= */
+static osTaskObject _idleTask = {{0}};
+
 static osKernelObject osKernel = {
 		.priorityTaskMatrix = {{0}},
 		.oldTask = NULL,
@@ -41,17 +43,15 @@ static osKernelObject osKernel = {
 		.countTask = 0,
 		.countTaskByPriority = {0},
 		.osTime = 0,
-		.delayStopTime = {0},
 		.running = false,
 
-		.idleTask = {{0}}
+		.idleTask = &_idleTask
 };
 
 /* ================== Private functions declaration ================= */
 
 static uint32_t getNextContext(uint32_t currentTaskStackPointer);
 static void getNextTask(osPriorityType * priority, uint32_t * taskIndex);
-static void disableKernelInterrupts(bool setDisable);
 static void scheduler(void);
 static void idleTaskCreate();
 
@@ -87,6 +87,12 @@ bool osTaskCreate(osTaskObject* handler, osPriorityType priority, void* callback
     handler -> priority       = priority;
     handler -> stackPointer   = (uint32_t)(handler->memory + MAX_STACK_SIZE/4 - SIZE_STACK_FRAME);
 
+    // Delay and Queue fields init
+    handler -> delayStopTime = 0;
+    handler -> queueEmpty    = NULL;
+    handler -> queueFull     = NULL;
+
+
     // Fill controls OS structure (adjusted for priority)
     osKernel.priorityTaskMatrix[priority][osKernel.countTaskByPriority[priority]] = handler;
     osKernel.countTaskByPriority[priority] += 1;
@@ -98,7 +104,7 @@ bool osTaskCreate(osTaskObject* handler, osPriorityType priority, void* callback
 
 void osStart(void)
 {
-	disableKernelInterrupts(true);
+	osDisableKernelInterrupts(true);
 
     osKernel.running = false;
 
@@ -117,25 +123,20 @@ void osStart(void)
 
     osKernel.running = true;
 
-    disableKernelInterrupts(false);
+    osDisableKernelInterrupts(false);
 }
 
 
 void osDelay(const uint32_t tick) {
+
+    if (tick == 0) return;
+
 	osTaskObject * thisTask = osKernel.currentTask;
 
 	thisTask -> state = OS_TASK_WAITING;
-	osKernel.delayStopTime[thisTask -> id] = osKernel.osTime + tick;
+	thisTask -> delayStopTime = osKernel.osTime + tick;
 
-	/* while task is in state=waiting we keep calling wfi
-	 * arm instruction, waiting for a change in task state.
-	 *
-	 * Change is triggered by scheduler when trying to find next
-	 * task to put in the work pipeline.
-	 * */
-	while (thisTask -> state == OS_TASK_WAITING) {
-		__WFI();
-	}
+	osYield();
 }
 
 
@@ -144,9 +145,57 @@ __WEAK void osReturnTaskHook(void) {
 }
 
 __WEAK void osIdleTask(void) {
-	__WFI();
+    while(1) __WFI();
 }
 
+
+osTaskObject * osGetRunningTask() {
+
+	if (!osKernel.running)
+		return NULL;
+
+	if (osKernel.idleTask == osKernel.currentTask)
+		return NULL;
+
+	return osKernel.currentTask;
+}
+
+
+void osDisableKernelInterrupts(bool setDisable) {
+    if (setDisable) {
+        NVIC_DisableIRQ(SysTick_IRQn);
+        NVIC_DisableIRQ(PendSV_IRQn);
+
+    } else {
+        NVIC_EnableIRQ(PendSV_IRQn);
+        NVIC_EnableIRQ(SysTick_IRQn);
+    }
+}
+
+
+void osYield() {
+    osDisableKernelInterrupts(true);
+
+    scheduler();
+    /*
+     * Set up bit corresponding exception PendSV
+     */
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+
+    /*
+     * Instruction Synchronization Barrier; flushes the pipeline and ensures that
+     * all previous instructions are completed before executing new instructions
+     */
+    __ISB();
+
+    /*
+     * Data Synchronization Barrier; ensures that all memory accesses are
+     * completed before next instruction is executed
+     */
+    __DSB();
+
+    osDisableKernelInterrupts(false);
+}
 
 /* ================ Private functions implementation ================ */
 
@@ -183,11 +232,37 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 
 			osTaskObject * task = osKernel.priorityTaskMatrix[i][j];
 
-			if (task -> state == OS_TASK_WAITING) {
-				if (osKernel.delayStopTime[task->id] == osKernel.osTime)
+			// Checking for delays
+			if (task -> state == OS_TASK_WAITING &&
+                task -> delayStopTime != 0) {
+
+			    if (task -> delayStopTime == osKernel.osTime) {
+				    task -> delayStopTime = 0;
 					task -> state = OS_TASK_READY;
+				}
 			}
 
+			// Checking for queue empty
+			if (task -> state == OS_TASK_WAITING &&
+			    task -> queueEmpty != NULL) {
+
+			    if (!isQueueEmpty(task -> queueEmpty)) {
+			        task -> queueEmpty = NULL;
+			        task -> state = OS_TASK_READY;
+			    }
+			}
+
+			// Checking for queue full
+			if (task -> state == OS_TASK_WAITING &&
+                task -> queueFull != NULL) {
+
+                if (!isQueueFull(task -> queueFull)) {
+                    task -> queueFull = NULL;
+                    task -> state = OS_TASK_READY;
+                }
+            }
+
+			// Checking if task if ready then updating target priority.
 			if (task -> state == OS_TASK_READY) {
 
 				if (i < priorityTarget)
@@ -231,24 +306,6 @@ static void getNextTask(osPriorityType * priority, uint32_t * taskIndex) {
 	*taskIndex = _taskIndex;
 }
 
-
-/**
- * @brief Disable kernel interrupts method.
- *
- * Useful to maybe later add a serial print mechanism.
- */
-static void disableKernelInterrupts(bool setDisable) {
-	if (setDisable) {
-		NVIC_DisableIRQ(SysTick_IRQn);
-		NVIC_DisableIRQ(PendSV_IRQn);
-
-	} else {
-		NVIC_EnableIRQ(PendSV_IRQn);
-		NVIC_EnableIRQ(SysTick_IRQn);
-	}
-}
-
-
 /**
  * @brief Get the task that must be run.
  *
@@ -276,7 +333,7 @@ static void scheduler(void)
 
 
 static void idleTaskCreate() {
-	osTaskObject * handler = & osKernel.idleTask;
+	osTaskObject * handler = osKernel.idleTask;
 
 
     /* Setting:
@@ -299,6 +356,11 @@ static void idleTaskCreate() {
     handler -> state          = OS_TASK_READY;
     handler -> priority       = OS_IDLE_PRIORITY;
     handler -> stackPointer   = (uint32_t)(handler->memory + MAX_STACK_SIZE/4 - SIZE_STACK_FRAME);
+
+    // Delay and Queue fields init
+    handler -> delayStopTime = 0;
+    handler -> queueEmpty    = NULL;
+    handler -> queueFull     = NULL;
 
     // Fill controls OS structure (adjusted for priority)
     osKernel.priorityTaskMatrix[OS_IDLE_PRIORITY][osKernel.countTaskByPriority[OS_IDLE_PRIORITY]] = handler;

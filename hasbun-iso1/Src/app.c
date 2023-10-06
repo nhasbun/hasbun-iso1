@@ -1,6 +1,9 @@
 #include "app.h"
 #include "osKernel.h"
+#include "osSemaphore.h"
+#include "osQueue.h"
 #include "stm32f4xx_hal.h"
+#include <stdlib.h>
 
 
 #define REPETITIVE_TASK_MS(MS, X)  do { \
@@ -15,6 +18,10 @@
 static osTaskObject osTask1;
 static osTaskObject osTask2;
 static osTaskObject osTask3;
+static osSemaphoreObject semaphore1;
+static osSemaphoreObject semaphore2;
+static osQueueObject queue1;
+static osQueueObject queue2;
 
 
 // File scope methods
@@ -29,8 +36,12 @@ void app_main() {
     osTaskCreate(&osTask2, OS_NORMAL_PRIORITY, task2);
     osTaskCreate(&osTask3, OS_LOW_PRIORITY,    task3);
 
-    osStart();
+    osSemaphoreInit(&semaphore1, 0, 0);
+    osSemaphoreInit(&semaphore2, 0, 0);
+    osQueueInit(&queue1, sizeof(char));
+    osQueueInit(&queue2, sizeof(int));
 
+    osStart();
 
     while (1)
     {
@@ -42,33 +53,55 @@ void app_main() {
 
 static void task1() {
     uint32_t i = 0;
+    char buffer[32] = {0};
 
     while(1)
     {
         i++;
-        osDelay(500);
+
+        for (int ii = 0; ii < 32; ii++)
+            osQueueReceive(&queue1, buffer + ii, 0);
+
+        //HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 }
 
 
 static void task2() {
     uint32_t j = 0;
+    int buffer = 0;
 
     while(1)
     {
         j++;
-        osDelay(1000);
+        osQueueReceive(&queue2, &buffer, 0);
+
+        // Check expected values from queue.
+        assert(buffer == 0 - j);
+
+        //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
     }
 }
 
 
 static void task3() {
     uint32_t k = 0;
+    char a_char = 'a';
+    int _num = 0;
 
     while(1)
     {
         k++;
-        osDelay(10);
+        osDelay(1000);
+
+        for(int i = 0; i < 32; i++) {
+            /* intention here is to test task block when queue is full */
+            char temp = a_char + i;
+            osQueueSend(&queue1, &temp, 0);
+        }
+
+        _num--;
+        osQueueSend(&queue2, &_num, 0);
     }
 }
 

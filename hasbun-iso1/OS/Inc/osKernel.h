@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "osQueue.h"
+
 
 #define MAX_NUMBER_TASK         8U          // Defines maximum task we could create.
 #define MAX_NUMBER_PRIORITY     4U          // Defines the maximum amount of priority.
@@ -60,7 +62,12 @@ typedef struct
     uint8_t             id;                         // Task ID, it is a number started in 0
     osPriorityType      priority;                   // Task priority.
     osTaskStatusType    state;                      // Task state.
-}osTaskObject;
+
+    uint32_t            delayStopTime;              // Stop delay tick time (0 if no delay activated)
+    osQueueObject*      queueFull;                           // Full queue blocking the task (NULL if no queue blocking)
+    osQueueObject*      queueEmpty;                          // Empty queue blocking the task (NULL if no queue blocking)
+
+} osTaskObject;
 
 
 /**
@@ -115,6 +122,29 @@ void osErrorHook(void* caller);
  * @brief Idle task of the operation system.
  */
 void osIdleTask(void);
+
+
+/**
+ * @brief Returns a pointer to the running task.
+ *
+ * If running task is the idle task then pointer becomes NULL.
+ * If OS is not started then pointer becomes NULL.
+ */
+osTaskObject * osGetRunningTask(void);
+
+/**
+ * @brief Disable kernel interrupts method.
+ *
+ * Enable/disable os kernel interrupts (systick and pendsv).
+ *
+ * @param setDisable if true enable interrupts.
+ */
+void osDisableKernelInterrupts(bool setDisable);
+
+/**
+ * @brief Forces a call to the scheduler.
+ */
+void osYield();
 
 
 #endif // INC_OSKERNEL_H_
