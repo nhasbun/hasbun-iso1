@@ -11,3 +11,4 @@ En particular:
 
 - TP1: Proyecto base que incluye cambio de contexto.
 - TP2: Incluye prioridades, tarea idle y delays.
+- TP3: Incluye semáforos y colas.
