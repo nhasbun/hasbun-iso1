@@ -49,9 +49,8 @@ typedef enum
     OS_VERYHIGH_PRIORITY,
     OS_HIGH_PRIORITY,
     OS_NORMAL_PRIORITY,
-    OS_LOW_PRIORITY,
-	OS_IDLE_PRIORITY
-}osPriorityType;
+    OS_LOW_PRIORITY
+} osPriorityType;
 
 
 typedef struct
@@ -64,8 +63,8 @@ typedef struct
     osTaskStatusType    state;                      // Task state.
 
     uint32_t            delayStopTime;              // Stop delay tick time (0 if no delay activated)
-    osQueueObject*      queueFull;                           // Full queue blocking the task (NULL if no queue blocking)
-    osQueueObject*      queueEmpty;                          // Empty queue blocking the task (NULL if no queue blocking)
+    osQueueObject*      queueFull;                  // Full queue blocking the task (NULL if no queue blocking)
+    osQueueObject*      queueEmpty;                 // Empty queue blocking the task (NULL if no queue blocking)
 
 } osTaskObject;
 

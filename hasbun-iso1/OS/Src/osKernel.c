@@ -30,6 +30,10 @@ typedef struct
     osTaskObject*   idleTask;                  // specific idle task object.
 } osKernelObject;
 
+
+/* Fix: Creating internal idle priority */
+static const int OS_IDLE_PRIORITY = (int)MAX_NUMBER_PRIORITY;
+
 /* ================== Private variables declaration ================= */
 static osTaskObject _idleTask = {{0}};
 
@@ -354,7 +358,7 @@ static void idleTaskCreate() {
     handler -> entryPoint     = osIdleTask;
     handler -> id             = osKernel.countTask;
     handler -> state          = OS_TASK_READY;
-    handler -> priority       = OS_IDLE_PRIORITY;
+    handler -> priority       = (osPriorityType) OS_IDLE_PRIORITY;
     handler -> stackPointer   = (uint32_t)(handler->memory + MAX_STACK_SIZE/4 - SIZE_STACK_FRAME);
 
     // Delay and Queue fields init
