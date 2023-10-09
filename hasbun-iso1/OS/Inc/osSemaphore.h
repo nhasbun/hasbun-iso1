@@ -23,6 +23,8 @@ void osSemaphoreInit(osSemaphoreObject* semaphore, const uint32_t maxCount, cons
 /**
  * @brief Take semaphore.
  *
+ * Take semaphore is ignored inside interrupts.
+ *
  * @param[in,out]   semaphore   Semaphore handler.
  *
  * @return Returns true if the semaphore could be taken.

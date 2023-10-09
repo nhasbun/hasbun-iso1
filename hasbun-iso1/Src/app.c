@@ -66,9 +66,10 @@ static void task1() {
     {
         i++;
 
-        for (int ii = 0; ii < 32; ii++)
-            osQueueReceive(&queue1, buffer + ii, 0);
+//        for (int ii = 0; ii < 32; ii++)
+//            osQueueReceive(&queue1, buffer + ii, 0);
 
+        osSemaphoreTake(&semaphore1);
         HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 }
@@ -99,15 +100,13 @@ static void task3() {
     while(1)
     {
         k++;
-        osEnterCriticalSection();
         osDelay(1000);
-        osExitCriticalSection();
 
-        for(int i = 0; i < 32; i++) {
-            /* intention here is to test task block when queue is full */
-            char temp = a_char + i;
-            osQueueSend(&queue1, &temp, 0);
-        }
+//        for(int i = 0; i < 32; i++) {
+//            /* intention here is to test task block when queue is full */
+//            char temp = a_char + i;
+//            osQueueSend(&queue1, &temp, 0);
+//        }
 
         _num--;
         osQueueSend(&queue2, &_num, 0);
@@ -118,6 +117,11 @@ static void task3() {
 static void externalInterrupt10_15(void * data) {
     bool * buttonPressed = (bool*) data;
     *buttonPressed = true;
+
+    /* Should be ignored */
+    osDelay(0xffff);
+
+    osSemaphoreGive(&semaphore1);
 
     __HAL_GPIO_EXTI_CLEAR_FLAG(USER_Btn_Pin);
 }

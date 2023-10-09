@@ -90,6 +90,7 @@ void osStart(void);
  * @brief Execute a delay for the current task.
  *
  * Delay has undefined behavior inside critical sections.
+ * Delay is ignored inside interruptions.
  *
  * @param[in]   tick Number ticks delayed.
  */

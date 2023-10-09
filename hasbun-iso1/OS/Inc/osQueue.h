@@ -31,6 +31,9 @@ bool osQueueInit(osQueueObject* queue, const uint32_t dataSize);
 /**
  * @brief Send data to the queue.
  *
+ * Expected to work inside interrupts but without blocking when full.
+ * Inside an interrupt is recommended to use isQueueFull before.
+ *
  * @param[in, out]  queue   Queue object.
  * @param[in, out]  data    Data sent to the queue.
  * @param[in]       timeout Number of ticks to wait before blocking the task..
@@ -42,6 +45,9 @@ void osQueueSend(osQueueObject* queue, const void* data, const uint32_t timeout)
 
 /**
  * @brief Receive data to the queue.
+ *
+ * Expected to work inside interrupts but without blocking when empty.
+ * Inside an interrupt is recommended to use isQueueEmpty before.
  *
  * @param[in, out]  queue   Queue object.
  * @param[in, out]  buffer  Buffer to  save the data read from the queue.

@@ -35,6 +35,8 @@ void osQueueSend(osQueueObject* queue, const void* data, const uint32_t timeout)
 	/* if queue is full, task becomes blocked/waiting */
 	while (isQueueFull(queue)) {
 
+	    if (__get_IPSR() > 0) return;  // interrupt context
+
 	    osTaskObject * task = osGetRunningTask();
 
 		task->state = OS_TASK_BLOCK;
@@ -55,6 +57,8 @@ void osQueueReceive(osQueueObject* queue, void* buffer, const uint32_t timeout) 
 
 	/* if queue is empty, task becomes blocked/waiting */
 	while (isQueueEmpty(queue)) {
+
+	    if (__get_IPSR() > 0) return;  // interrupt context
 
 		osGetRunningTask()->state = OS_TASK_BLOCK;
 		osGetRunningTask()->queueEmpty = queue;

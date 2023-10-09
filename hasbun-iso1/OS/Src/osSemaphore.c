@@ -21,8 +21,8 @@ void osSemaphoreInit(osSemaphoreObject* semaphore, const uint32_t maxCount, cons
 
 bool osSemaphoreTake(osSemaphoreObject* semaphore) {
 
-	if (semaphore -> isTaked)
-		return false;
+    if (__get_IPSR() > 0)     return false;  // interrupt context
+	if (semaphore -> isTaked) return false;
 
 	semaphore -> isTaked = true;
 	semaphore -> waitingTask = osGetRunningTask();
@@ -47,4 +47,6 @@ void osSemaphoreGive(osSemaphoreObject* semaphore) {
 	/* we ignore any other state than being waiting/blocked */
 	if (semaphore -> waitingTask -> state == OS_TASK_BLOCK)
 	    semaphore -> waitingTask -> state = OS_TASK_READY;
+
+	/* calling osYield is optional here, I think I prefer to just simply wait for next tick */
 }

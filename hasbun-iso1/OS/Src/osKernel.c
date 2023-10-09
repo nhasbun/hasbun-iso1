@@ -134,6 +134,7 @@ void osStart(void)
 void osDelay(const uint32_t tick) {
 
     if (tick == 0) return;
+    if (__get_IPSR() > 0) return;  // interrupt context
 
 	osTaskObject * thisTask = osKernel.currentTask;
 
