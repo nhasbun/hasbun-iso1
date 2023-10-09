@@ -2,10 +2,12 @@
 #include "osKernel.h"
 #include "osSemaphore.h"
 #include "osQueue.h"
+#include "osIRQ.h"
 #include "stm32f4xx_hal.h"
 #include <stdlib.h>
 
 
+#define USER_Btn_Pin GPIO_PIN_13
 #define REPETITIVE_TASK_MS(MS, X)  do { \
     static volatile uint32_t init = -1; \
     if (init == -1) {init = HAL_GetTick();} \
@@ -23,11 +25,14 @@ static osSemaphoreObject semaphore2;
 static osQueueObject queue1;
 static osQueueObject queue2;
 
+static bool buttonPressed = false;
+
 
 // File scope methods
 static void task1();
 static void task2();
 static void task3();
+static void externalInterrupt10_15(void * data);
 
 
 
@@ -40,6 +45,8 @@ void app_main() {
     osSemaphoreInit(&semaphore2, 0, 0);
     osQueueInit(&queue1, sizeof(char));
     osQueueInit(&queue2, sizeof(int));
+
+    while(!osRegisterIRQ(EXTI15_10_IRQn, externalInterrupt10_15, (void*) &buttonPressed));
 
     osStart();
 
@@ -62,7 +69,7 @@ static void task1() {
         for (int ii = 0; ii < 32; ii++)
             osQueueReceive(&queue1, buffer + ii, 0);
 
-        //HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+        HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
 }
 
@@ -79,7 +86,7 @@ static void task2() {
         // Check expected values from queue.
         assert(buffer == 0 - j);
 
-        //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
     }
 }
 
@@ -92,7 +99,9 @@ static void task3() {
     while(1)
     {
         k++;
+        osEnterCriticalSection();
         osDelay(1000);
+        osExitCriticalSection();
 
         for(int i = 0; i < 32; i++) {
             /* intention here is to test task block when queue is full */
@@ -103,5 +112,13 @@ static void task3() {
         _num--;
         osQueueSend(&queue2, &_num, 0);
     }
+}
+
+
+static void externalInterrupt10_15(void * data) {
+    bool * buttonPressed = (bool*) data;
+    *buttonPressed = true;
+
+    __HAL_GPIO_EXTI_CLEAR_FLAG(USER_Btn_Pin);
 }
 

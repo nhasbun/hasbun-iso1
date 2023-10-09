@@ -2,6 +2,7 @@
 
 #include "lpc4337.h"
 
+#define NOHANDLER 0
 
 osIRQVector irqVector[IRQ_NUMBER] = { 0 };
 
@@ -59,6 +60,12 @@ void QEI_IRQHandler(void){osIRQHandler(         QEI_IRQn         );}
 
 void osIRQHandler(osIRQnType irqType)
 {
+    /* No handler registered check */
+    if (irqVector[irqType].handler ==  NOHANDLER) return;
+
+    /*TODO clear interrupts bits here */
+
+    irqVector[irqType].handler(irqVector[irqType].data);
 }
 
 #endif // LPC4337

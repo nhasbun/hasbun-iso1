@@ -27,6 +27,8 @@ extern osIRQVector irqVector[IRQ_NUMBER];
  * @brief Function used to execute the interrupt logic and
  * clear the interrupt trigger bit.
  *
+ * TODO For now library user must clear the interrupt pending bit.
+ *
  * @param[in]   irqType     IRQ number on the interrupts vector.
  */
 void osIRQHandler(osIRQnType irqType);

@@ -3,7 +3,12 @@
 #include "stm32f429.h"
 #include "core_cm4.h"
 
+
+#define NOHANDLER 0
+
+
 osIRQVector irqVector[IRQ_NUMBER] = { 0 };
+
 
 void WWDG_IRQHandler(void)                  {osIRQHandler(WWDG_IRQn);}                  /* Window WatchDog                             */
 void PVD_IRQHandler(void)                   {osIRQHandler(PVD_IRQn);}                   /* PVD through EXTI Line detection             */
@@ -98,6 +103,11 @@ void DMA2D_IRQHandler(void)                 {osIRQHandler(DMA2D_IRQn);}         
 
 void osIRQHandler(osIRQnType irqType)
 {
+    /* No handler registered check */
+    if (irqVector[irqType].handler ==  NOHANDLER) return;
+
+    /*TODO clear interrupts bits here */
+
     irqVector[irqType].handler(irqVector[irqType].data);
 }
 
