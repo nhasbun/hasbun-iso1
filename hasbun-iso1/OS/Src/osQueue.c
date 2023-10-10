@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdlib.h>
 #include "osQueue.h"
 #include "osKernel.h"
 #include "cmsis_gcc.h"
@@ -21,6 +20,7 @@ bool osQueueInit(osQueueObject* queue, const uint32_t dataSize) {
 	queue -> init  = true;
 	queue -> savedData = 0;
 	queue -> dataSize = dataSize;
+	queue -> queueLenght = MAX_SIZE_QUEUE / dataSize;
 
 	return true;
 }
@@ -71,7 +71,7 @@ void osQueueReceive(osQueueObject* queue, void* buffer, const uint32_t timeout) 
 
 
 bool isQueueFull(osQueueObject * queue) {
-    return queue -> savedData == MAX_SIZE_QUEUE;
+    return queue -> savedData == queue-> queueLenght;
 }
 
 
@@ -85,8 +85,6 @@ bool isQueueEmpty(osQueueObject * queue) {
 
 static void put(osQueueObject * queue, const void * data) {
 
-    void * ptr = malloc(queue -> dataSize);
-
     /* ATTENTION
      * The order of instructions matter!
      *
@@ -95,20 +93,18 @@ static void put(osQueueObject * queue, const void * data) {
      */
     queue -> savedData++;
 
-	memcpy(ptr, data, queue -> dataSize);
-	queue -> data[queue -> savedData - 1] = ptr;
+	memcpy(queue->data + (queue->savedData - 1) * queue->dataSize, data, queue->dataSize);
 }
 
 static void get(osQueueObject * queue, void * buffer) {
 
     /* always get item at index 0 */
-    memcpy(buffer, queue -> data[0], queue -> dataSize);
-    free(queue -> data[0]);
-    queue -> data[0] = NULL;
+    memcpy(buffer, queue->data, queue->dataSize);
 
     /* re-ordering of elements */
-    for (int i = 0; i < queue->savedData - 1; i++) {
-        queue->data[i] = queue->data[i+1];
+    for (int i = 0; i < (queue->savedData - 1)*queue->dataSize; i++) {
+
+        queue->data[i] = queue->data[i + queue->dataSize];
     }
 
 	/* ATTENTION

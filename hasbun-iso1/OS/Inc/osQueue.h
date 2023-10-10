@@ -5,16 +5,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAX_SIZE_QUEUE  4     // Maximum buffer size of the queue
+#define MAX_SIZE_QUEUE  128     // Maximum buffer size of the queue
 
 /**
  * @brief Data structure queue.
  */
 typedef struct {
 	bool init;
-	void * data[MAX_SIZE_QUEUE];
+	uint8_t data[MAX_SIZE_QUEUE];
 	uint32_t savedData;
 	uint32_t dataSize;
+	uint32_t queueLenght;
 
 } osQueueObject;
 
