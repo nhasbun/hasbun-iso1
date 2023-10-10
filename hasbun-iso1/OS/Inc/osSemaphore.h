@@ -7,8 +7,9 @@
 
 
 typedef struct {
-	bool isTaked;
-	osTaskObject* waitingTask;
+	bool isTook;
+	osTaskObject * waitingTask[MAX_NUMBER_TASK];
+	uint32_t numWaitingTasks;
 } osSemaphoreObject;
 
 /**
@@ -23,7 +24,8 @@ void osSemaphoreInit(osSemaphoreObject* semaphore, const uint32_t maxCount, cons
 /**
  * @brief Take semaphore.
  *
- * Take semaphore is ignored inside interrupts.
+ * Inside interrupts, blocks the underlying running task.
+ * If idle task is running, semaphore is taken but no blocking any task.
  *
  * @param[in,out]   semaphore   Semaphore handler.
  *

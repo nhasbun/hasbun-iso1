@@ -6,32 +6,42 @@
 #include "osKernel.h"
 
 
-
 void osSemaphoreInit(osSemaphoreObject* semaphore, const uint32_t maxCount, const uint32_t count) {
     /* TODO implement counting semaphore (count argument ignored for now) */
 
-	if (count)
-		semaphore -> isTaked = true;
+	if (!count)
+		semaphore -> isTook = true;
 	else
-		semaphore -> isTaked = false;
+		semaphore -> isTook = false;
 
-	semaphore -> waitingTask = NULL;
+	for (int i  = 0; i < MAX_NUMBER_TASK; i++) semaphore->waitingTask[i] = NULL;
+
+	semaphore -> numWaitingTasks = 0;
 }
 
 
 bool osSemaphoreTake(osSemaphoreObject* semaphore) {
 
-    if (__get_IPSR() > 0)     return false;  // interrupt context
-	if (semaphore -> isTaked) return false;
+    if (semaphore == NULL) return false;
 
-	semaphore -> isTaked = true;
-	semaphore -> waitingTask = osGetRunningTask();
-	semaphore -> waitingTask -> state = OS_TASK_BLOCK;
+	/* if semaphore is took we block the task */
+    if (semaphore->isTook) {
 
-	/* wait for systick -> scheduler */
-	while (semaphore -> isTaked) {
-		__WFI();
+        osTaskObject * thisTask = osGetRunningTask();
+
+        /* not blocking idle task */
+        if (thisTask != NULL) {
+
+            semaphore -> waitingTask[semaphore->numWaitingTasks] = thisTask;
+            thisTask -> state = OS_TASK_BLOCK;
+            semaphore -> numWaitingTasks++;
+
+            /* calling the scheduler */
+            osYield();
+        }
 	}
+
+    semaphore -> isTook = true;
 
 	return true;
 }
@@ -39,14 +49,26 @@ bool osSemaphoreTake(osSemaphoreObject* semaphore) {
 
 void osSemaphoreGive(osSemaphoreObject* semaphore) {
 
-	if (!(semaphore -> isTaked))
+	if (!(semaphore -> isTook))
 		return;
 
-	semaphore -> isTaked = false;
+	/* with no waiting tasks, we clear the semaphore */
+	if (semaphore -> numWaitingTasks == 0)
+	    semaphore -> isTook = false;
 
 	/* we ignore any other state than being waiting/blocked */
-	if (semaphore -> waitingTask -> state == OS_TASK_BLOCK)
-	    semaphore -> waitingTask -> state = OS_TASK_READY;
+	else if (semaphore -> waitingTask[0] -> state == OS_TASK_BLOCK) {
+
+	    /* allow waiting task to run */
+	    semaphore -> waitingTask[0] -> state = OS_TASK_READY;
+	    semaphore -> numWaitingTasks--;
+
+	    /* re-ordering waiting tasks */
+	    for (int i = 0; i < semaphore->numWaitingTasks; i++) {
+	        semaphore->waitingTask[i] = semaphore->waitingTask[i+1];
+	    }
+	}
+
 
 	/* calling osYield is optional here, I think I prefer to just simply wait for next tick */
 }

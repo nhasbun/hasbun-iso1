@@ -15,7 +15,6 @@
 } while (0);\
 
 
-
 // File scope variables
 static osTaskObject osTask1;
 static osTaskObject osTask2;
@@ -41,9 +40,9 @@ void app_main() {
     osTaskCreate(&osTask2, OS_NORMAL_PRIORITY, task2);
     osTaskCreate(&osTask3, OS_LOW_PRIORITY,    task3);
 
-    osSemaphoreInit(&semaphore1, 0, 0);
-    osSemaphoreInit(&semaphore2, 0, 0);
-    osQueueInit(&queue1, sizeof(char));
+    osSemaphoreInit(&semaphore1, 0, 1);
+    osSemaphoreInit(&semaphore2, 0, 1);
+    osQueueInit(&queue1, sizeof(uint32_t));
     osQueueInit(&queue2, sizeof(int));
 
     while(!osRegisterIRQ(EXTI15_10_IRQn, externalInterrupt10_15, (void*) &buttonPressed));
@@ -60,15 +59,11 @@ void app_main() {
 
 static void task1() {
     uint32_t i = 0;
-    char buffer[32] = {0};
+    uint32_t buffer[32] = {0};
 
     while(1)
     {
         i++;
-
-//        for (int ii = 0; ii < 32; ii++)
-//            osQueueReceive(&queue1, buffer + ii, 0);
-
         osSemaphoreTake(&semaphore1);
         HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     }
@@ -82,11 +77,7 @@ static void task2() {
     while(1)
     {
         j++;
-        osQueueReceive(&queue2, &buffer, 0);
-
-        // Check expected values from queue.
-        assert(buffer == 0 - j);
-
+        osSemaphoreTake(&semaphore1);
         HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
     }
 }
@@ -94,22 +85,14 @@ static void task2() {
 
 static void task3() {
     uint32_t k = 0;
-    char a_char = 'a';
+    uint32_t num64 = 0;
     int _num = 0;
 
     while(1)
     {
         k++;
         osDelay(1000);
-
-//        for(int i = 0; i < 32; i++) {
-//            /* intention here is to test task block when queue is full */
-//            char temp = a_char + i;
-//            osQueueSend(&queue1, &temp, 0);
-//        }
-
-        _num--;
-        osQueueSend(&queue2, &_num, 0);
+        osSemaphoreGive(&semaphore1);
     }
 }
 
