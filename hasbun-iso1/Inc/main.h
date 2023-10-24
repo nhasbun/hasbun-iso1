@@ -75,6 +75,13 @@ void Error_Handler(void);
 #define RMII_RXD0_GPIO_Port GPIOC
 #define RMII_RXD1_Pin GPIO_PIN_5
 #define RMII_RXD1_GPIO_Port GPIOC
+#define B2_Pin GPIO_PIN_12
+#define B2_GPIO_Port GPIOF
+#define B2_EXTI_IRQn EXTI15_10_IRQn
+#define LD4_Pin GPIO_PIN_9
+#define LD4_GPIO_Port GPIOE
+#define Heartbeat_Pin GPIO_PIN_11
+#define Heartbeat_GPIO_Port GPIOE
 #define RMII_TXD1_Pin GPIO_PIN_13
 #define RMII_TXD1_GPIO_Port GPIOB
 #define LD3_Pin GPIO_PIN_14

@@ -12,6 +12,10 @@ bool osRegisterIRQ(osIRQnType irqType, IRQHandler function, void *data)
 
     irqVector[irqType].handler = function;
     irqVector[irqType].data = data;
+
+    NVIC_ClearPendingIRQ(irqType);
+    NVIC_EnableIRQ(irqType);
+
     return true;
 }
 
@@ -22,6 +26,10 @@ bool osUnregisterIRQ(osIRQnType irqType)
 
     irqVector[irqType].handler = NOHANDLER;
     irqVector[irqType].data = NODATA;
+
+    NVIC_ClearPendingIRQ(irqType);
+    NVIC_EnableIRQ(irqType);
+
     return true;
 }
 

@@ -156,7 +156,9 @@ void osExitCriticalSection(void) {
 
 
 __WEAK void osReturnTaskHook(void) {
+}
 
+__WEAK void osSysTickHook(void) {
 }
 
 __WEAK void osIdleTask(void) {
@@ -390,6 +392,7 @@ void SysTick_Handler(void)
 {
 	osKernel.osTime++;
 	scheduler();
+	osSysTickHook();
 
     /*
      * Set up bit corresponding exception PendSV

@@ -106,9 +106,10 @@ void osIRQHandler(osIRQnType irqType)
     /* No handler registered check */
     if (irqVector[irqType].handler ==  NOHANDLER) return;
 
-    /*TODO clear interrupts bits here */
-
     irqVector[irqType].handler(irqVector[irqType].data);
+
+    /*TODO clear interrupts bits here */
+    NVIC_ClearPendingIRQ(irqType);
 }
 
 #endif // STM32F429
