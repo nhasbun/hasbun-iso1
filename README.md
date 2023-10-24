@@ -13,3 +13,6 @@ En particular:
 - TP2: Incluye prioridades, tarea idle y delays.
 - TP3: Incluye semáforos y colas.
 - TP4: Incluye secciones críticas e interrupciones.
+- TPF: Incluye validación de RTOS con aplicación de prueba.
+
+Para mayor detalle se agregan los enunciados de cada trabajo de la materia.
