@@ -13,5 +13,6 @@ void gpioSetLevel(uint16_t pin, uint32_t port, bool value) {
 
 
 bool gpioGetLevel(uint16_t pin, uint32_t port) {
-    return HAL_GPIO_ReadPin((GPIO_TypeDef*) port, pin);
+    /* Buttons are using this function with negative logic */
+    return !HAL_GPIO_ReadPin((GPIO_TypeDef*) port, pin);
 }
